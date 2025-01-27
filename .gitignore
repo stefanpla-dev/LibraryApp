@@ -1,0 +1,8 @@
+.daml/
+dist/
+.bloop/
+.bsp/
+.metals/
+**/*.log
+*.dar
+.DS_Store
