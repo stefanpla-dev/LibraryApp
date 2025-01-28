@@ -1,0 +1,19 @@
+module Main where  --defines the module name Main where the app logic resides--
+
+import Daml.Script --script at end of this file. 
+
+
+
+
+
+
+
+
+
+
+
+setup : Script ()
+setup = do
+
+
+  
