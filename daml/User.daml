@@ -1,0 +1,25 @@
+module User where
+
+import Library
+
+template LibraryUser
+    with 
+        username : Party
+        library : Party
+    where
+        signatory username, library --library and user are required signers--
+
+        choice BorrowBook : ContractId LibraryBook
+            with 
+                bookId : (Text, Party)
+            controller username --allows user to borrow a specific book by key--
+            do  
+                bookCid <- fetchByKey @LibraryBook bookId --fetches the book by key and exercises CheckOut on it--
+                exerciseCmd bookCid Checkout with user = username
+        choice ReturnBook : () --returns no value--
+            with
+                bookId : (Text, Party)
+            controller username
+            do
+                bookCid <- fetchByKey @LibraryBook bookId --fetches the book by key and exercises the Return choice
+                exerciseCmd bookCid Return with user = username
