@@ -1,6 +1,6 @@
 module LibraryUser where
 
-import LibraryBook
+import LibraryTypes
 
 template LibraryUser
     with 
@@ -15,7 +15,7 @@ template LibraryUser
             controller username --allows user to borrow a specific book by key--
             do  
                 bookCid <- fetchByKey @LibraryBook bookId --fetches the book by key and exercises CheckOut on it--
-                exerciseCmd bookCid Checkout with user = username
+                exerciseCmd bookCid CheckOut with user = username
 
         choice ReturnBook : () --returns no value--
             with

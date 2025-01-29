@@ -1,30 +1,30 @@
-module LibraryBook where  --defines the module name Library where the app logic resides--
+module LibraryBook where --defines the module name LibraryBook where the app logic resides
 
-import LibraryUser
+import LibraryTypes
 
-template LibraryBook --defines LibraryBook contract structure.--
-  with --declares the contract's fields (text for title/author, Party for parties)--
-    title : Text
-    author : Text
-    library : Party 
-    checkedOutBy : Optional Party 
-  where
-    signatory library --authorization: who can do what--
-    observer checkedOutBy --privacy: who can see what--
-    key (title, library) : (Text, Party)
-    maintainer key._2
+template LibraryBook --defines LibraryBook contract structure
+    with --declares the contract's fields (text for title/author, Party for parties)
+        title : Text
+        author : Text
+        library : Party
+        checkedOutBy : Optional Party
+    where
+        signatory library --authorization: who can do what
+        observer checkedOutBy --privacy: who can see what
+        key (title, library) : (Text, Party)
+        maintainer key._2
 
-    choice CheckOut : Contract Id LibraryBook --defines the CheckOut choice. Returns a new LibraryBook contract ID.--
-        with --additional parameters--
-            user : Party
-        controller library --party authorized to exercise the choice--
-        do
-            assert (checkedOutBy == None) --Ensure the book isn't checked out already)--
-            create this with checkedOutBy = Some user --creates a new instance of the contract with checkedOutBy updated--
-    choice Return : ContractId LibraryBook
-        with    
-            user : Party
-        controller user
-        do
-            assert (checkedOutBy == Some user) --Ensure user currently has the book.--
-            create this with checkedOutBy = None --updates checkedOutBy to None--
+        choice CheckOut : ContractId LibraryBook--defines the CheckOut choice. Returns a new LibraryBook contract ID
+            with -- additional parameters
+                user : Party
+            controller library --party authoirzed to exercise the cohice
+            do
+                assert (checkedOutBy == None) --Ensure the book isn't checked out already
+                create this with checkedOutBy = Some user --creates a new instance of the contract with checkedOutBy updated
+        choice Return : ContractId LibraryBook
+            with
+                user : Party
+            controller user
+            do
+                assert (checkedOutBy == Some user) --Ensure user currently has the book.
+                create this with checkedOutBy = None --updates checkedOutBy to none
