@@ -1,0 +1,35 @@
+module Test where
+
+import Daml.Script --script at end of this file.--
+import LibraryBook
+import LibraryUser 
+
+
+testLibraryFunctionality : Script ()
+testLibraryFunctionality = do
+    library <- allocateParty "Public Library"
+    stefan <- allocateParty "Stefan"
+
+    --Create a book
+    bookCid <- submit library do
+        createCmd LibraryBook
+            with 
+                title = "DAML Basics"
+                author = "John Doe"
+                library = library
+                checkedOutBy = None
+
+    --Stefan borrows a book
+    submit stefan do
+        exerciseCmd bookCid CheckOut with user = stefan
+    
+    --Fetch a contract to validate check-out
+    checkedOutBook <- queryContractId @LibraryBook bookCid
+    assert (checkedOutBook.checkedOutBy == Some stefan)
+
+    --Stefan returns a book
+    submit stefan do
+        exerciseCmd bookCid Return with user = stefan
+    
+    pure ()
+  

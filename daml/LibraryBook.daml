@@ -1,6 +1,5 @@
-module Library where  --defines the module name Library where the app logic resides--
+module LibraryBook where  --defines the module name Library where the app logic resides--
 
-import Daml.Script --script at end of this file. --
 import LibraryUser
 
 template LibraryBook --defines LibraryBook contract structure.--
@@ -29,11 +28,3 @@ template LibraryBook --defines LibraryBook contract structure.--
         do
             assert (checkedOutBy == Some user) --Ensure user currently has the book.--
             create this with checkedOutBy = None --updates checkedOutBy to None--
-
-    
-
-setup : Script ()
-setup = do
-
-  pure ()
-  

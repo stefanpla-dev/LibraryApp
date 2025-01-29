@@ -1,6 +1,6 @@
-module User where
+module LibraryUser where
 
-import Library
+import LibraryBook
 
 template LibraryUser
     with 
@@ -16,6 +16,7 @@ template LibraryUser
             do  
                 bookCid <- fetchByKey @LibraryBook bookId --fetches the book by key and exercises CheckOut on it--
                 exerciseCmd bookCid Checkout with user = username
+
         choice ReturnBook : () --returns no value--
             with
                 bookId : (Text, Party)
