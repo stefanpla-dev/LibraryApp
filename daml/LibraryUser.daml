@@ -1,6 +1,5 @@
 module LibraryUser where
 
-import LibraryTypes
 
 template LibraryUser
     with 
