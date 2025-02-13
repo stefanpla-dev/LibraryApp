@@ -2,14 +2,13 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 
 import Daml.Script
 import DA.Time
-import DA.Assert
 
 data BookDetails = BookDetails 
     with
         title : Text
         author : Text
         isbn : Text
-    deriving (Eq, Show) -- 
+    deriving (Eq, Show)
 
 template LibraryBook --defines LibraryBook contract structure
     with --declares the contract's fields (text for title/author, Party for parties)
@@ -18,19 +17,33 @@ template LibraryBook --defines LibraryBook contract structure
     where
         signatory library --authorization: who can do what
 
-        choice CheckOut : ContractId CheckedOutLibraryBook--defines the CheckOut choice. Returns a new LibraryBook contract ID
-            with -- additional parameters
-                borrower : Party
-                dueDate : Time
 
-            controller library --party authoirzed to exercise the cohice
+        choice Offer : ContractId OfferedLibraryBook
+            with 
+                dueDate : Time
+                borrower : Party
+
+            controller library
+            do
+                create OfferedLibraryBook with ..
+
+
+template OfferedLibraryBook
+    with 
+        details : BookDetails
+        library : Party
+        borrower : Party
+        dueDate : Time
+    where   
+        signatory library
+        observer borrower
+
+        choice Accept : ContractId CheckedOutLibraryBook
+            controller borrower
             do
                 checkedOut <- getTime
-                create CheckedOutLibraryBook 
-                    with 
-                        dueDate
-                        checkedOut
-                        ..
+                create CheckedOutLibraryBook with ..
+
 
 template CheckedOutLibraryBook
     with
@@ -46,11 +59,7 @@ template CheckedOutLibraryBook
             controller borrower
             do
                 create LibraryBook with ..
-                        -- details  -- left pertains to LibraryBook, right to CheckedOutLibraryBook
-                        -- library 
-                        -- borrower
-                        -- dueDate 
-                        -- checkedOut 
+
 
 libraryTestScenario = script do 
     library <- allocateParty "Columbus Metropolitan Library"
@@ -63,24 +72,25 @@ libraryTestScenario = script do
 
     libraryBookCid <- submit library do
         createCmd LibraryBook with 
-            details = BookDetails
+            details = bookDetails
             library = library 
 
-    do
-        currentTime <- getTime
-        let dueDate = addRelTime currentTime (days 14)
-        pure dueDate
+    currentTime <- getTime
+    let dueDate = addRelTime currentTime (days 14)
 
-    checkedOutBookCid <- submit library do
-        exerciseCmd libraryBookCid CheckOut with
+    offeredBookCid <- submit library do
+        exerciseCmd libraryBookCid Offer with
             borrower = borrower
             dueDate = dueDate
-    
-    checkedOutBook <- queryContractId borrower checkedOutBookCid
-    assert (checkedOutBook.details === bookDetails)
-    assert (checkedOutBook.borrower === borrower)
-    assert (checkedOutBook.library ===library)
-    assert (checkedOutBook.dueDate === dueDate)
+
+    acceptedBookCid <- submit borrower do
+        exerciseCmd offeredBookCid Accept
 
     pure ()
 
+
+--what if the borrower declines the offer?
+
+--what if the offered book remains in limbo? the borrower neither declines nor accepts? 
+
+--leventebarczyda 
