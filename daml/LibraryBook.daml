@@ -2,6 +2,7 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 
 import Daml.Script
 import DA.Time
+import DA.Assert
 
 data BookDetails = BookDetails 
     with
@@ -51,15 +52,13 @@ template CheckedOutLibraryBook
                         -- dueDate 
                         -- checkedOut 
 
---write a test for this module. a scenario in which there's a library, a book in that library, have someone try to check it out. also take a whack at the libraryuser file, for fun. speak to Leve sometime next week in order to check the work, essentially. 
-
 libraryTestScenario = script do 
     library <- allocateParty "Columbus Metropolitan Library"
     borrower <- allocateParty "Stefan"
 
     let bookDetails = BookDetails with
             title = "Blue Highways"
-            author = "William Least Heat Moon"
+            author = "William Least Heat-Moon"
             isbn = "987654321"
 
     libraryBookCid <- submit library do
@@ -67,8 +66,10 @@ libraryTestScenario = script do
             details = BookDetails
             library = library 
 
-    currentTime <- getTime
-    dueDate <- addTime (days 14) currentTime --book due two weeks from the current moment. 
+    do
+        currentTime <- getTime
+        let dueDate = addRelTime currentTime (days 14)
+        pure dueDate
 
     checkedOutBookCid <- submit library do
         exerciseCmd libraryBookCid CheckOut with
@@ -76,10 +77,10 @@ libraryTestScenario = script do
             dueDate = dueDate
     
     checkedOutBook <- queryContractId borrower checkedOutBookCid
-    assert (checkedOutBook.details == bookDetails)
-    assert (checkedOutBook.borrower == borrower)
-    assert (checkedOutBook.library ==library)
-    assert (checkedOutBook.dueDate == dueDate)
+    assert (checkedOutBook.details === bookDetails)
+    assert (checkedOutBook.borrower === borrower)
+    assert (checkedOutBook.library ===library)
+    assert (checkedOutBook.dueDate === dueDate)
 
     pure ()
 
