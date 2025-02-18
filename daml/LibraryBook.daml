@@ -3,12 +3,14 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 import Daml.Script
 import DA.Time
 
+
 data BookDetails = BookDetails 
     with
         title : Text
         author : Text
         isbn : Text
     deriving (Eq, Show)
+
 
 template LibraryBook --defines LibraryBook contract structure
     with --declares the contract's fields (text for title/author, Party for parties)
@@ -51,7 +53,7 @@ template OfferedLibraryBook
             do
                 create DeclinedLibraryBook with ..
 
-        choice Expire : ContractId DeclinedLibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and create a DeclinedLibraryBook.
+        choice Expire : ContractId DeclinedLibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and create a DeclinedLibraryBook. test below.
             controller library
             do
                 now <- getTime
@@ -82,10 +84,9 @@ template DeclinedLibraryBook
         borrower : Party
         expiration : Time
     where 
-        signatory borrower
-        observer library
+        signatory library
 
-        choice Shelve : ContractId LibraryBook --book can be returned back to the shelf and made available for other borrowers
+        choice Shelve : ContractId LibraryBook --book can be returned back to the shelf and made available for other borrowers. test below.
             controller library
             do
                 create LibraryBook with .. 
@@ -148,6 +149,40 @@ libraryDeclineScenario = script do
     declinedBookCid <- submit borrower do
         exerciseCmd offeredBookCid Decline
 
+    pure ()
+
+declineAndShelveScenario = script do
+    library <- allocateParty "Columbus Metropolitan Library"
+    borrower <- allocateParty "Stefan"
+
+    let bookDetails = BookDetails with
+            title = "Blue Highways"
+            author = "William Least Heat-Moon"
+            isbn = "987654321"
+
+    libraryBookCid <- submit library do
+        createCmd LibraryBook with 
+            details = bookDetails
+            library = library 
+
+    currentTime <- getTime
+    let dueDate = addRelTime currentTime (days 14)
+    let expiration = addRelTime currentTime (minutes 15)
+
+    offeredBookCid <- submit library do
+        exerciseCmd libraryBookCid Offer with
+            borrower = borrower
+            dueDate = dueDate
+            expiration = expiration
+
+    setTime (addRelTime currentTime (minutes 16)) --ensure that correct period of time has passed before exercising the Expire choice on the offeredLibraryBook.
+
+    declinedBookCid <- submit library do
+        exerciseCmd offeredBookCid Expire
+    
+    shelvedBookCid <- submit library do
+        exerciseCmd declinedBookCid Shelve
+    
     pure ()
 
 
