@@ -2,7 +2,7 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 
 import Daml.Script
 import DA.Time
-
+import DA.Assert
 
 data BookDetails = BookDetails 
     with
@@ -74,7 +74,45 @@ template CheckedOutLibraryBook
             controller borrower
             do
                 create LibraryBook with ..
+        
+        choice ChargeLateFee : ContractId OverdueLibraryBook
+            controller library
+            do
+                now <- getTime
+                assert (now >= dueDate)
+                create OverdueLibraryBook with fee, ..
 
+
+template OverdueLibraryBook
+    with
+        details : BookDetails
+        library : Party
+        borrower : Party
+        dueDate : Time
+        checkedOut : Time
+        fee : Int
+    where 
+        signatory library
+        observer borrower
+
+        choice IncrementFee : ContractId OverdueLibraryBook
+            controller library
+            do
+                now <- getTime
+                let daysLate = timeDifferenceDays now dueDate -- pseudocode at this time, what I really want is a function timeDifferenceDays that will calculate the difference between now and dueDate.
+                let newFee = fee + (daysLate * 2) -- $2 per day late fee 
+                create OverdueLibraryBook with fee = newFee, ..
+
+        choice PayFee : ContractId OverdueLibraryBook 
+            controller borrower
+            do
+                create OverdueLibraryBook with fee = 0, .. -- payment processing?
+
+        choice ReturnOverdueBook : ContractId LibraryBook
+            controller borrower 
+            do
+                assert (fee === 0)
+                create LibraryBook with ..
 
 libraryAcceptScenario = script do 
     library <- allocateParty "Columbus Metropolitan Library"
@@ -165,3 +203,10 @@ expireScenario = script do
         exerciseCmd offeredBookCid Expire
     
     pure ()
+
+
+-- New branch on 2/24/25 regarding Late Fees. This could play out in a few ways. A fee could be charged when a book is returned past the due date, or could the library somehow "flag" when a book is overdue. Furthermore, could we incrememnt a fee based on how far past the due date we are? Daml can't trigger anything based on a time, but it can give the library the choice to do so under specific enforceable conditions. 
+
+-- ChargeLateFee (or something like that) could be a choice on a CheckedOutLibraryBook that can be exercised by the library when the dueDate has passed. This could create an OverdueLibraryBook, where the library can make an IncrementFee choice depending on how far passed the due date we are. OverdueBook should also have a return choice - presumably the OverdueBook will eventually be returned. 
+
+--What about a LateFeesLedger? Does the library want to keep track of how much in fees they have outstanding and to which borrowers those fees correspond?
