@@ -19,7 +19,6 @@ template LibraryBook --defines LibraryBook contract structure
     where
         signatory library --authorization: who can do what
 
-
         choice Offer : ContractId OfferedLibraryBook
             with 
                 borrower : Party
@@ -48,17 +47,17 @@ template OfferedLibraryBook
                 assert (checkedOut <= expiration)
                 create CheckedOutLibraryBook with ..
 
-        choice Decline : ContractId DeclinedLibraryBook
+        choice Decline : ContractId LibraryBook
             controller borrower
             do
-                create DeclinedLibraryBook with ..
+                create LibraryBook with ..
 
-        choice Expire : ContractId DeclinedLibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and create a DeclinedLibraryBook. test below.
+        choice Expire : ContractId LibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and create a DeclinedLibraryBook. test below.
             controller library
             do
                 now <- getTime
                 assert (now >= expiration) 
-                create DeclinedLibraryBook with ..
+                create LibraryBook with ..
 
 
 template CheckedOutLibraryBook
@@ -75,21 +74,6 @@ template CheckedOutLibraryBook
             controller borrower
             do
                 create LibraryBook with ..
-
-
-template DeclinedLibraryBook
-    with 
-        details : BookDetails
-        library : Party
-        borrower : Party
-        expiration : Time
-    where 
-        signatory library
-
-        choice Shelve : ContractId LibraryBook --book can be returned back to the shelf and made available for other borrowers. test below.
-            controller library
-            do
-                create LibraryBook with .. 
 
 
 libraryAcceptScenario = script do 
@@ -151,7 +135,7 @@ libraryDeclineScenario = script do
 
     pure ()
 
-declineAndShelveScenario = script do
+expireScenario = script do
     library <- allocateParty "Columbus Metropolitan Library"
     borrower <- allocateParty "Stefan"
 
@@ -180,18 +164,4 @@ declineAndShelveScenario = script do
     declinedBookCid <- submit library do
         exerciseCmd offeredBookCid Expire
     
-    shelvedBookCid <- submit library do
-        exerciseCmd declinedBookCid Shelve
-    
     pure ()
-
-
---what if the borrower declines the offer?
-    --the OfferedLibraryBook needs a new choice, which is to decline the offered book. This will require writing a new template, a DeclinedLibraryBook.
-    --I will code this up for the sake of the exercise but I do wonder what the practical use-case is, if anything. Why would a borrower initiate the process of checking out a book only to decline it?
-        --Given the scenario, does it make more sense for the OfferedLibraryBook to become a SelectedLibraryBook, where the borrower is a signatory and the library is an observer? The SelectedBook then has two choices for which the library is the controller - to confirm (and create a CheckedOutBook) or to decline (create a DeclinedLibraryBook). Maybe code up a second version of the LibraryBook template with this in mind and show to Leve?
-
---what if the offered book remains in limbo? the borrower neither declines nor accepts? 
-    --is there a way to place a time limit on the offer? as in, if it is offered and no action is taken in a certain period of time, then the offer is rescinded (and, effectively, a DeclinedBook is created)?
-
---leventebarczyda (?) for GitHub

@@ -1,0 +1,107 @@
+module SelectedBook where 
+
+import Daml.Script
+import DA.Time
+
+
+data BookDetails = BookDetails 
+    with
+        title : Text
+        author : Text
+        isbn : Text
+    deriving (Eq, Show)
+
+
+template LibraryBook 
+    with 
+        details : BookDetails
+        library : Party
+    where
+        signatory library
+
+        choice Select : ContractId SelectedLibraryBook
+            with
+                borrower : Party
+                dueDate : Time
+            controller borrower
+            do
+                create SelectedLibraryBook with ..
+
+
+template SelectedLibraryBook
+    with
+        details : BookDetails
+        library : Party
+        borrower : Party
+        dueDate : Time
+    where
+        signatory library, borrower
+        
+        choice Confirm : ContractId CheckedOutLibraryBook
+            controller library
+            do
+                checkedOut <- getTime
+                create CheckedOutLibraryBook with ..
+
+        choice Decline : ContractId DeclinedLibraryBook
+            controller library
+            do
+                create DeclinedLibraryBook with ..
+
+
+template CheckedOutLibraryBook
+    with
+        details : BookDetails
+        library : Party
+        borrower : Party
+        checkedOut : Time
+        dueDate : Time
+    where
+        signatory library, borrower
+
+        choice Return : ContractId LibraryBook
+            controller borrower
+            do
+                create LibraryBook with ..
+
+
+template DeclinedLibraryBook
+    with 
+        details : BookDetails
+        library : Party
+        borrower : Party
+    where
+        signatory library
+
+        choice Shelve : ContractId LibraryBook
+            controller library
+            do
+                create LibraryBook with ..
+
+
+libraryConfirmScenario = script do
+    library <- allocateParty "Edgartown Public Library"
+    borrower <- allocateParty "Jeffrey"
+
+    let bookDetails = BookDetails with 
+            title = "Interview with the Vampire"
+            author = "Anne Rice"
+            isbn = "123456789"
+
+    libraryBookCid <- submit library do
+        createCmd LibraryBook with 
+            details = bookDetails
+            library = library
+    
+    currentTime <- getTime
+    let dueDate = addRelTime currentTime (days 14)
+
+    selectedBookCid <- submit borrower do 
+        exerciseCmd libraryBookCid Select with
+            borrower = borrower
+            dueDate = dueDate
+    
+    confirmedBookCid <- submit library do
+        exerciseCmd selectedBookCid Confirm
+
+    pure ()
