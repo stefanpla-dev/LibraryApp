@@ -1,0 +1,21 @@
+module LateFeesLedger where
+
+--this is a very simple implementation of a late fee ledger - maybe the library wants to keep track of its total sum of late fees?
+
+--how to make this more interesting? 
+    --does the library want to keep track of late fees by person? 
+    --is this where the library would want to keep track of how long a fee has been outstanding?
+        --could there be such a thing as a LateFee template?
+
+template LateFeesLedger
+    with
+        library : Party
+        totalFees : Int
+    where
+        signatory library
+
+        choice RecordLateFee : ContractId LateFeesLedger
+            with amount : Int
+            controller library
+            do
+                create LateFeesLedger with totalFees = totalFees + amount, ..
