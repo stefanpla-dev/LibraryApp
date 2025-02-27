@@ -1,0 +1,64 @@
+module InterLibraryLoans where 
+
+import LibraryBook
+
+import Daml.Script
+import DA.Time
+
+data BookDetails = BookDetails
+    with    
+        title : Text
+        author : Text
+        isbn : Text
+    deriving (Eq, Show)
+
+
+template BatchLibraryLoanRequest
+    with
+        requestingLibrary : Party
+        lendingLibrary : Party
+        books : [BookDetails]
+        requestedUntil : Time
+    where
+        signatory requestingLibrary
+        observer lendingLibrary
+
+        choice ApproveLoan : ContractId BatchLibraryLoanAgreement
+            controller lendingLibrary
+            do
+                create BatchLibraryLoanAgreement with 
+                    requestingLibrary
+                    lendingLibrary
+                    books
+                    dueDate = requestedUntil
+        
+        -- insert ApprovePartialLoan here - what if the lendingLibrary is willing to lend only some of the requested books? --
+
+        choice RejectLoan : ContractId BatchLibraryLoanRequest
+            controller lendingLibrary
+            do
+                return this -- can I do this? Not take action, just track rejected requests? --
+
+template BatchLibraryLoanAgreement
+    with
+        requestingLibrary : Party
+        lendingLibrary : Party
+        books : [BookDetails]
+        dueDate : Time
+    where 
+        signatory lendingLibrary
+        observer requestingLibrary
+
+        choice ExtendLoan : ContractId BatchLibraryLoanAgreement
+            with extraDays : Int
+            controller lendingLibrary
+            do
+                let newDueDate = addRelTime dueDate (days extraDays)
+                create this with dueDate = newDueDate
+
+        choice ReturnLoanedBooks : ContractId LibraryBook
+            with returnedBooks : [BookDetails]
+            controller requestingLibrary
+            do
+                create LibraryBook with details = head returnedBooks, library = lendingLibrary
+            --what if only some of the books are returned? Create a new agreement with the ones that remain outstanding? Probably still a part of the ReturnedLoanedBooks choice but...will make it a little more nuanced.--
