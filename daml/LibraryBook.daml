@@ -2,6 +2,7 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 
 import Daml.Script
 import DA.Time
+import DA.Date (Month(Jan), date, addDays, datetime, toGregorian)
 import DA.Assert
 
 data BookDetails = BookDetails 
@@ -22,10 +23,13 @@ template LibraryBook --defines LibraryBook contract structure
         choice Offer : ContractId OfferedLibraryBook
             with 
                 borrower : Party
-                dueDate : Time
+                dueDate : Date
                 expiration : Time
             controller library
             do
+                let 
+                    (year, month, day) = toGregorian $ dueDate `addDays` 1
+                    due = datetime year month day 4 0 0 
                 create OfferedLibraryBook with ..
 
 
@@ -34,7 +38,7 @@ template OfferedLibraryBook
         details : BookDetails
         library : Party
         borrower : Party
-        dueDate : Time
+        due : Time
         expiration : Time --added to create Expire choice below.
     where   
         signatory library
@@ -52,7 +56,7 @@ template OfferedLibraryBook
             do
                 create LibraryBook with ..
 
-        choice Expire : ContractId LibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and create a DeclinedLibraryBook. test below.
+        choice Expire : ContractId LibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and permit the book to be borrowed by other borrowers. test below.
             controller library
             do
                 now <- getTime
@@ -65,7 +69,7 @@ template CheckedOutLibraryBook
         details : BookDetails
         library : Party
         borrower : Party
-        dueDate : Time
+        due : Time
         checkedOut : Time
     where 
         signatory library, borrower
@@ -79,8 +83,8 @@ template CheckedOutLibraryBook
             controller library
             do
                 now <- getTime
-                assert (now >= dueDate)
-                create OverdueLibraryBook with fee, ..
+                assert (now >= due)
+                create OverdueLibraryBook with fee, lastAccruedDate, ..
 
 
 template OverdueLibraryBook
@@ -88,8 +92,9 @@ template OverdueLibraryBook
         details : BookDetails
         library : Party
         borrower : Party
-        dueDate : Time
+        due : Time
         checkedOut : Time
+        lastAccruedDate : Time
         fee : Int
     where 
         signatory library
@@ -99,9 +104,15 @@ template OverdueLibraryBook
             controller library
             do
                 now <- getTime
-                let daysLate = timeDifferenceDays now dueDate -- pseudocode at this time, what I really want is a function timeDifferenceDays that will calculate the difference between now and dueDate.
+                let relDiff = subTime now due -- returns time offset between two instances as a RelTime
+                
+                let totalMicroseconds = convertRelTimeToMicroseconds relDiff -- convert that RelTime to microseconds
+                let microsecondsPerDay = convertRelTimeToMicroseconds (days 1)
+
+                let daysLate = round ((intToDecimal totalMicroseconds) / (intToDecimal microsecondsPerDay + 0.000001)) --round a decmial number to an integer 
+                
                 let newFee = fee + (daysLate * 2) -- $2 per day late fee 
-                create OverdueLibraryBook with fee = newFee, ..
+                create OverdueLibraryBook with fee = newFee, lastAccruedDate = now, ..
 
         choice PayFee : ContractId OverdueLibraryBook 
             controller borrower
@@ -129,7 +140,7 @@ libraryAcceptScenario = script do
             library = library 
 
     currentTime <- getTime
-    let dueDate = addRelTime currentTime (days 14)
+    let dueDate = date 1970 Jan 14
     let expiration = addRelTime currentTime (minutes 15)
 
     offeredBookCid <- submit library do
@@ -159,7 +170,7 @@ libraryDeclineScenario = script do
             library = library 
 
     currentTime <- getTime
-    let dueDate = addRelTime currentTime (days 14)
+    let dueDate = date 1970 Jan 14
     let expiration = addRelTime currentTime (minutes 15)
 
     offeredBookCid <- submit library do
@@ -188,7 +199,7 @@ expireScenario = script do
             library = library 
 
     currentTime <- getTime
-    let dueDate = addRelTime currentTime (days 14)
+    let dueDate = date 1970 Jan 14
     let expiration = addRelTime currentTime (minutes 15)
 
     offeredBookCid <- submit library do
@@ -203,10 +214,3 @@ expireScenario = script do
         exerciseCmd offeredBookCid Expire
     
     pure ()
-
-
--- New branch on 2/24/25 regarding Late Fees. This could play out in a few ways. A fee could be charged when a book is returned past the due date, or could the library somehow "flag" when a book is overdue. Furthermore, could we incrememnt a fee based on how far past the due date we are? Daml can't trigger anything based on a time, but it can give the library the choice to do so under specific enforceable conditions. 
-
--- ChargeLateFee (or something like that) could be a choice on a CheckedOutLibraryBook that can be exercised by the library when the dueDate has passed. This could create an OverdueLibraryBook, where the library can make an IncrementFee choice depending on how far passed the due date we are. OverdueBook should also have a return choice - presumably the OverdueBook will eventually be returned. 
-
---What about a LateFeesLedger? Does the library want to keep track of how much in fees they have outstanding and to which borrowers those fees correspond?
