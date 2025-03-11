@@ -4,6 +4,7 @@ import Daml.Script
 import DA.Time
 import DA.Date (Month(Jan), date, addDays, datetime, toGregorian)
 import DA.Assert
+import DA.Numeric (roundNumeric)
 
 data BookDetails = BookDetails 
     with
@@ -104,12 +105,14 @@ template OverdueLibraryBook
             controller library
             do
                 now <- getTime
-                let relDiff = subTime now due -- returns time offset between two instances as a RelTime
+                let relDiff = now `subTime` due -- returns time offset between two instances as a RelTime
                 
                 let totalMicroseconds = convertRelTimeToMicroseconds relDiff -- convert that RelTime to microseconds
                 let microsecondsPerDay = convertRelTimeToMicroseconds (days 1)
 
-                let daysLate = round ((intToDecimal totalMicroseconds) / (intToDecimal microsecondsPerDay + 0.000001)) --round a decmial number to an integer 
+                let daysLateNumeric : Decimal = (intToNumeric totalMicroseconds) / (intToNumeric microsecondsPerDay)
+
+                let daysLate = roundNumeric 0 RoundingCeiling daysLateNumeric
                 
                 let newFee = fee + (daysLate * 2) -- $2 per day late fee 
                 create OverdueLibraryBook with fee = newFee, lastAccruedDate = now, ..
