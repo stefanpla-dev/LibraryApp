@@ -3,7 +3,6 @@ module LibraryBook where --defines the module name LibraryBook where the app log
 import Daml.Script
 import DA.Time
 import DA.Date (Month(Jan), date, addDays, datetime, toGregorian)
-import DA.Assert
 import DA.Numeric (roundNumeric)
 
 data BookDetails = BookDetails 
@@ -85,8 +84,7 @@ template CheckedOutLibraryBook
             do
                 now <- getTime
                 assert (now >= due)
-                create OverdueLibraryBook with fee, lastAccruedDate, ..
-
+                create OverdueLibraryBook with lastAccruedDate = now, fee = 0, ..
 
 template OverdueLibraryBook
     with
@@ -112,9 +110,10 @@ template OverdueLibraryBook
 
                 let daysLateNumeric : Decimal = (intToNumeric totalMicroseconds) / (intToNumeric microsecondsPerDay)
 
-                let daysLate = roundNumeric 0 RoundingCeiling daysLateNumeric
+                let daysLate = truncate (roundNumeric 0 RoundingCeiling daysLateNumeric)
                 
                 let newFee = fee + (daysLate * 2) -- $2 per day late fee 
+                --daysLate is of type Numeric 10, fee is of type Int and the literal 2 is also of type Int.
                 create OverdueLibraryBook with fee = newFee, lastAccruedDate = now, ..
 
         choice PayFee : ContractId OverdueLibraryBook 
@@ -125,7 +124,6 @@ template OverdueLibraryBook
         choice ReturnOverdueBook : ContractId LibraryBook
             controller borrower 
             do
-                assert (fee === 0)
                 create LibraryBook with ..
 
 libraryAcceptScenario = script do 
