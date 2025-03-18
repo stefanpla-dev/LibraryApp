@@ -4,13 +4,7 @@ import LibraryBook
 
 import Daml.Script
 import DA.Time
-
-data BookDetails = BookDetails
-    with    
-        title : Text
-        author : Text
-        isbn : Text
-    deriving (Eq, Show)
+import DA.List (head)
 
 
 template BatchLibraryLoanRequest
@@ -37,7 +31,7 @@ template BatchLibraryLoanRequest
         choice RejectLoan : ContractId BatchLibraryLoanRequest
             controller lendingLibrary
             do
-                return this -- can I do this? Not take action, just track rejected requests? --
+                return this -- can I do this? Not take action, just track rejected requests? The _ in Daml is a placeholder that indicates you're ignoring fields in a record. --
 
 template BatchLibraryLoanAgreement
     with
