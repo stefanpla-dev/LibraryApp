@@ -65,3 +65,12 @@ isRecent (Book _ year) = year > 2020
 
 recent1 : Bool
 recent1 = isRecent book1
+
+--Declare a list of integers numbers with values [1,2,3,4,5]. Write a function sumList that takes a list of integers and returns their sum.
+
+numbers : [Int]
+numbers = [1,2,3,4,5]
+
+sumList : [Int] -> Int
+sumList numbers = foldl (+) 0 numbers
+
