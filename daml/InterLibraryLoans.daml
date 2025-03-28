@@ -17,10 +17,10 @@ template BatchLibraryLoanRequest
         signatory requestingLibrary
         observer lendingLibrary
 
-        choice ApproveLoan : ContractId BatchLibraryLoanAgreement
+        choice ApproveLoan : ContractId BatchLibraryDeliverable
             controller lendingLibrary
             do
-                create BatchLibraryLoanAgreement with 
+                create BatchLibraryDeliverable with 
                     requestingLibrary
                     lendingLibrary
                     books
@@ -28,31 +28,58 @@ template BatchLibraryLoanRequest
         
         -- insert ApprovePartialLoan here - what if the lendingLibrary is willing to lend only some of the requested books? --
 
-        choice RejectLoan : ContractId BatchLibraryLoanRequest
+        choice RejectLoan : ()
             controller lendingLibrary
             do
-                return this -- can I do this? Not take action, just track rejected requests? The _ in Daml is a placeholder that indicates you're ignoring fields in a record. --
+                return ()
 
-template BatchLibraryLoanAgreement
+template BatchLibraryDeliverable
     with
         requestingLibrary : Party
         lendingLibrary : Party
         books : [BookDetails]
         dueDate : Time
     where 
-        signatory lendingLibrary
-        observer requestingLibrary
+        signatory lendingLibrary, requestingLibrary -- both institutions have to sign off on the BatchLibraryDeliverable
 
-        choice ExtendLoan : ContractId BatchLibraryLoanAgreement
-            with extraDays : Int
+        choice Deliver : ContractId DeliveredBooks
+            with
+                bookIds : [ContactId LibraryBook]
             controller lendingLibrary
             do
-                let newDueDate = addRelTime dueDate (days extraDays)
-                create this with dueDate = newDueDate
+                bookData <- mapA fetch bookIds 
+                let 
+                    sortedBookDetails = sort books 
+                    bookDataDetails = map (\d -> d.details) bookData
+                    sortedBookDataDetails = sort bookDataDetails
 
-        choice ReturnLoanedBooks : ContractId LibraryBook
-            with returnedBooks : [BookDetails]
-            controller requestingLibrary
-            do
-                create LibraryBook with details = head returnedBooks, library = lendingLibrary
+                assert sortedBoookDataDetails == sortedBookDetails 
+
+                deliveredBooks <- mapA (\bookId -> do 
+                    -- this is where we do the archival and the transfer ) bookIds. Could be only two lines. As a hint, the Library Book module may have to introduce choices to transfer to another library. Give a book the ability to be transferred to another library.
+                return DeliveredBooks 
+
+
+
+
+
+
+
+
+
+
+
+
+        -- choice ExtendLoan : ContractId BatchLibraryDeliverable
+        --     with extraDays : Int
+        --     controller lendingLibrary
+        --     do
+        --         let newDueDate = addRelTime dueDate (days extraDays)
+        --         create this with dueDate = newDueDate
+
+        -- choice ReturnLoanedBooks : ContractId LibraryBook
+        --     with returnedBooks : [BookDetails]
+        --     controller requestingLibrary
+        --     do
+        --         create LibraryBook with details = head returnedBooks, library = lendingLibrary
             --what if only some of the books are returned? Create a new agreement with the ones that remain outstanding? Probably still a part of the ReturnedLoanedBooks choice but...will make it a little more nuanced.--
