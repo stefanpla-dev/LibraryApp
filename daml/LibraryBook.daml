@@ -10,7 +10,7 @@ data BookDetails = BookDetails
         title : Text
         author : Text
         isbn : Text
-    deriving (Eq, Show)
+    deriving (Eq, Show, Ord)
 
 
 template LibraryBook --defines LibraryBook contract structure
@@ -113,7 +113,9 @@ template OverdueLibraryBook
                 let daysLate = truncate (roundNumeric 0 RoundingCeiling daysLateNumeric)
                 
                 let newFee = fee + (daysLate * 2) -- $2 per day late fee 
-                --daysLate is of type Numeric 10, fee is of type Int and the literal 2 is also of type Int.
+                -- want to stay up at night? Best way to represent dollars is to two decimal places, or even four places to account for rounding errors.
+                -- 
+                
                 create OverdueLibraryBook with fee = newFee, lastAccruedDate = now, ..
 
         choice PayFee : ContractId OverdueLibraryBook 
