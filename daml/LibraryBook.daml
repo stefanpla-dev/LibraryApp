@@ -1,8 +1,7 @@
-module LibraryBook where --defines the module name LibraryBook where the app logic resides
+module LibraryBook where 
 
-import Daml.Script
 import DA.Time
-import DA.Date (Month(Jan), date, addDays, datetime, toGregorian)
+import DA.Date (addDays, datetime, toGregorian)
 import DA.Numeric (roundNumeric)
 
 data BookDetails = BookDetails 
@@ -13,12 +12,12 @@ data BookDetails = BookDetails
     deriving (Eq, Show, Ord)
 
 
-template LibraryBook --defines LibraryBook contract structure
-    with --declares the contract's fields (text for title/author, Party for parties)
+template LibraryBook 
+    with 
         details : BookDetails
         library : Party
     where
-        signatory library --authorization: who can do what
+        signatory library 
 
         choice Offer : ContractId OfferedLibraryBook
             with 
@@ -31,6 +30,15 @@ template LibraryBook --defines LibraryBook contract structure
                     (year, month, day) = toGregorian $ dueDate `addDays` 1
                     due = datetime year month day 4 0 0 
                 create OfferedLibraryBook with ..
+        
+        choice Transfer : ContractId LibraryBook 
+        -- give library the ability to transfer a book to another library. Becomes relevant in the InterLibraryLoan module.--
+            with
+                newLibrary : Party
+            controller library
+            do
+                create LibraryBook with 
+                    library = newLibrary, ..
 
 
 template OfferedLibraryBook
@@ -39,7 +47,7 @@ template OfferedLibraryBook
         library : Party
         borrower : Party
         due : Time
-        expiration : Time --added to create Expire choice below.
+        expiration : Time 
     where   
         signatory library
         observer borrower
@@ -56,7 +64,7 @@ template OfferedLibraryBook
             do
                 create LibraryBook with ..
 
-        choice Expire : ContractId LibraryBook --if a certain period of time passes without action, then the library can exercise its Expire choice and permit the book to be borrowed by other borrowers. test below.
+        choice Expire : ContractId LibraryBook 
             controller library
             do
                 now <- getTime
@@ -113,8 +121,6 @@ template OverdueLibraryBook
                 let daysLate = truncate (roundNumeric 0 RoundingCeiling daysLateNumeric)
                 
                 let newFee = fee + (daysLate * 2) -- $2 per day late fee 
-                -- want to stay up at night? Best way to represent dollars is to two decimal places, or even four places to account for rounding errors.
-                -- 
                 
                 create OverdueLibraryBook with fee = newFee, lastAccruedDate = now, ..
 
@@ -127,93 +133,3 @@ template OverdueLibraryBook
             controller borrower 
             do
                 create LibraryBook with ..
-
-libraryAcceptScenario = script do 
-    library <- allocateParty "Columbus Metropolitan Library"
-    borrower <- allocateParty "Stefan"
-
-    let bookDetails = BookDetails with
-            title = "Blue Highways"
-            author = "William Least Heat-Moon"
-            isbn = "987654321"
-
-    libraryBookCid <- submit library do
-        createCmd LibraryBook with 
-            details = bookDetails
-            library = library 
-
-    currentTime <- getTime
-    let dueDate = date 1970 Jan 14
-    let expiration = addRelTime currentTime (minutes 15)
-
-    offeredBookCid <- submit library do
-        exerciseCmd libraryBookCid Offer with
-            borrower = borrower
-            dueDate = dueDate
-            expiration = expiration
-
-    acceptedBookCid <- submit borrower do
-        exerciseCmd offeredBookCid Accept
-
-    pure ()
-
---needed new test scenario as the test above archives the contract once the Accept choice is exercised.
-libraryDeclineScenario = script do 
-    library <- allocateParty "Columbus Metropolitan Library"
-    borrower <- allocateParty "Stefan"
-
-    let bookDetails = BookDetails with
-            title = "Blue Highways"
-            author = "William Least Heat-Moon"
-            isbn = "987654321"
-
-    libraryBookCid <- submit library do
-        createCmd LibraryBook with 
-            details = bookDetails
-            library = library 
-
-    currentTime <- getTime
-    let dueDate = date 1970 Jan 14
-    let expiration = addRelTime currentTime (minutes 15)
-
-    offeredBookCid <- submit library do
-        exerciseCmd libraryBookCid Offer with
-            borrower = borrower
-            dueDate = dueDate
-            expiration = expiration
-
-    declinedBookCid <- submit borrower do
-        exerciseCmd offeredBookCid Decline
-
-    pure ()
-
-expireScenario = script do
-    library <- allocateParty "Columbus Metropolitan Library"
-    borrower <- allocateParty "Stefan"
-
-    let bookDetails = BookDetails with
-            title = "Blue Highways"
-            author = "William Least Heat-Moon"
-            isbn = "987654321"
-
-    libraryBookCid <- submit library do
-        createCmd LibraryBook with 
-            details = bookDetails
-            library = library 
-
-    currentTime <- getTime
-    let dueDate = date 1970 Jan 14
-    let expiration = addRelTime currentTime (minutes 15)
-
-    offeredBookCid <- submit library do
-        exerciseCmd libraryBookCid Offer with
-            borrower = borrower
-            dueDate = dueDate
-            expiration = expiration
-
-    setTime (addRelTime currentTime (minutes 16)) --ensure that correct period of time has passed before exercising the Expire choice on the offeredLibraryBook.
-
-    declinedBookCid <- submit library do
-        exerciseCmd offeredBookCid Expire
-    
-    pure ()

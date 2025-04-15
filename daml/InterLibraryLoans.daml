@@ -2,9 +2,8 @@ module InterLibraryLoans where
 
 import LibraryBook
 
-import Daml.Script
-import DA.Time
-import DA.List (head)
+-- import DA.Time
+import DA.List (sort)
 
 
 template BatchLibraryLoanRequest
@@ -25,50 +24,6 @@ template BatchLibraryLoanRequest
                     lendingLibrary
                     books
                     dueDate = requestedUntil
-        
-        -- insert ApprovePartialLoan here - what if the lendingLibrary is willing to lend only some of the requested books? --
-
-        choice RejectLoan : ()
-            controller lendingLibrary
-            do
-                return ()
-
-template BatchLibraryDeliverable
-    with
-        requestingLibrary : Party
-        lendingLibrary : Party
-        books : [BookDetails]
-        dueDate : Time
-    where 
-        signatory lendingLibrary, requestingLibrary -- both institutions have to sign off on the BatchLibraryDeliverable
-
-        choice Deliver : ContractId DeliveredBooks
-            with
-                bookIds : [ContactId LibraryBook]
-            controller lendingLibrary
-            do
-                bookData <- mapA fetch bookIds 
-                let 
-                    sortedBookDetails = sort books 
-                    bookDataDetails = map (\d -> d.details) bookData
-                    sortedBookDataDetails = sort bookDataDetails
-
-                assert sortedBoookDataDetails == sortedBookDetails 
-
-                deliveredBooks <- mapA (\bookId -> do 
-                    -- this is where we do the archival and the transfer ) bookIds. Could be only two lines. As a hint, the Library Book module may have to introduce choices to transfer to another library. Give a book the ability to be transferred to another library.
-                return DeliveredBooks 
-
-
-
-
-
-
-
-
-
-
-
 
         -- choice ExtendLoan : ContractId BatchLibraryDeliverable
         --     with extraDays : Int
@@ -82,4 +37,59 @@ template BatchLibraryDeliverable
         --     controller requestingLibrary
         --     do
         --         create LibraryBook with details = head returnedBooks, library = lendingLibrary
-            --what if only some of the books are returned? Create a new agreement with the ones that remain outstanding? Probably still a part of the ReturnedLoanedBooks choice but...will make it a little more nuanced.--
+        
+        choice RejectLoan : ()
+            controller lendingLibrary
+            do
+                return ()
+
+template BatchLibraryDeliverable
+    with
+        requestingLibrary : Party
+        lendingLibrary : Party
+        books : [BookDetails]
+        dueDate : Time
+    where 
+        signatory lendingLibrary, requestingLibrary 
+
+        choice Deliver : ContractId DeliveredBooks
+            with
+                bookIds : [ContractId LibraryBook]
+            controller lendingLibrary
+            do
+                --verify all books match the request--
+                bookData <- mapA fetch bookIds 
+                let 
+                    sortedBookDetails = sort books 
+                    bookDataDetails = map (\d -> d.details) bookData
+                    sortedBookDataDetails = sort bookDataDetails
+
+                --transfer each book to the requesting library and archive the original--
+                transferredBooks <- mapA (\bookId -> do
+                    book <- exercise bookId Transfer with newLibrary = requestingLibrary
+                    return book) bookIds 
+                create DeliveredBooks with ..
+
+template DeliveredBooks
+    with
+        requestingLibrary : Party
+        lendingLibrary : Party
+        books : [BookDetails]
+        dueDate : Time
+        transferredBooks : [ContractId LibraryBook]
+    where
+        signatory requestingLibrary, lendingLibrary
+
+
+
+        
+
+
+
+
+
+
+
+
+
+

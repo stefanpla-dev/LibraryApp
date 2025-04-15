@@ -1,6 +1,6 @@
 sdk-version: 2.9.6
 name: LibraryApp
-source: daml
+source: daml 
 version: 0.1.0
 dependencies:
   - daml-prim
