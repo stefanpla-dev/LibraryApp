@@ -31,14 +31,22 @@ template LibraryBook
                     due = datetime year month day 4 0 0 
                 create OfferedLibraryBook with ..
         
-        choice Transfer : ContractId LibraryBook 
         -- give library the ability to transfer a book to another library. Becomes relevant in the InterLibraryLoan module.--
+        choice Transfer : ContractId LibraryBook 
             with
                 newLibrary : Party
             controller library
             do
                 create LibraryBook with 
                     library = newLibrary, ..
+
+        choice OfferCustody : ContractId CustodyOffer
+            with
+                newLibrary : Party
+            controller library
+            do
+                create CustodyOffer with ..
+
 
 
 template OfferedLibraryBook
@@ -133,3 +141,18 @@ template OverdueLibraryBook
             controller borrower 
             do
                 create LibraryBook with ..
+
+
+template CustodyOffer
+    with
+        details : BookDetails
+        library : Party
+        newLibrary : Party
+    where
+        signatory library
+        observer newLibrary
+
+        choice AcceptCustodyOffer : ContractId LibraryBook
+            controller newLibrary
+            do
+                create LibraryBook with library = newLibrary; ..

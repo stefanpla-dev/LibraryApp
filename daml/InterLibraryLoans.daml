@@ -4,6 +4,7 @@ import LibraryBook
 
 -- import DA.Time
 import DA.List (sort)
+import DA.Assert ((===))
 
 
 template BatchLibraryLoanRequest
@@ -52,25 +53,26 @@ template BatchLibraryDeliverable
     where 
         signatory lendingLibrary, requestingLibrary 
 
-        choice Deliver : ContractId DeliveredBooks
+        choice Deliver : ContractId InterLibraryLoan
             with
                 bookIds : [ContractId LibraryBook]
             controller lendingLibrary
             do
-                --verify all books match the request--
                 bookData <- mapA fetch bookIds 
                 let 
                     sortedBookDetails = sort books 
                     bookDataDetails = map (\d -> d.details) bookData
                     sortedBookDataDetails = sort bookDataDetails
 
-                --transfer each book to the requesting library and archive the original--
-                transferredBooks <- mapA (\bookId -> do
-                    book <- exercise bookId Transfer with newLibrary = requestingLibrary
-                    return book) bookIds 
-                create DeliveredBooks with ..
+                sortedBookDataDetails === bookDataDetails
 
-template DeliveredBooks
+                transferredBooks <- mapA (\bookId -> do
+                    bookOffer <- exercise bookId OfferCustody with newLibrary = requestingLibrary
+                    exercise bookOffer AcceptCustodyOffer
+                    ) bookIds 
+                create InterLibraryLoan with ..
+
+template InterLibraryLoan
     with
         requestingLibrary : Party
         lendingLibrary : Party
@@ -80,6 +82,9 @@ template DeliveredBooks
     where
         signatory requestingLibrary, lendingLibrary
 
+
+--try the folliwng test: Transferred books to Morgan Library. Have the Morgan Library lend it out to someone and have them return it on time. Then, try to return the books back to their original source.--
+-- give the InterLibraryLoan the choice to ReturnBooks--
 
 
         

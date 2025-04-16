@@ -1,8 +1,10 @@
-module LibraryBookTest where
+module Test.LibraryBookTest where
 
 import Daml.Script
 import LibraryBook
 import DA.Date (Month(Jan), date)
+import DA.Time
+import InterLibraryLoans
 
 
 libraryAcceptScenario : Script ()
@@ -96,3 +98,47 @@ expireScenario = script do
         exerciseCmd offeredBookCid Expire
     
     pure ()
+
+transferScenario : Script ()
+transferScenario = script do 
+    library <- allocateParty "Columbus Metropolitan Library"
+    requestingLibrary <- allocateParty "Morgan Library"
+    borrower <- allocateParty "Stefan"
+    currentTime <- getTime
+
+    let bookDetails1 = BookDetails with
+            title = "Blue Highways"
+            author = "William Least Heat-Moon"
+            isbn = "987654321"
+
+    let bookDetails2 = BookDetails with 
+            title = "The Suffering Stranger"
+            author = "Donna Orange"
+            isbn = "123456789"
+
+    libraryBookCid1 <- submit library do
+        createCmd LibraryBook with 
+            details = bookDetails1
+            library = library 
+    
+    libraryBookCid2 <- submit library do
+        createCmd LibraryBook with
+            details = bookDetails2
+            library = library
+            
+    batchedRequest <- submit requestingLibrary do
+        createCmd BatchLibraryLoanRequest with
+            lendingLibrary = library
+            requestingLibrary = requestingLibrary
+            books = [bookDetails1, bookDetails2]
+            requestedUntil = currentTime
+
+    approvedLoan <- submit library do
+        exerciseCmd batchedRequest ApproveLoan 
+
+    deliveredBooks <- submit library do
+        exerciseCmd approvedLoan Deliver with
+            bookIds = [libraryBookCid1, libraryBookCid2]
+
+    pure ()
+
