@@ -2,9 +2,10 @@ module Test.LibraryBookTest where
 
 import Daml.Script
 import LibraryBook
-import DA.Date (Month(Jan), date)
+import DA.Date
 import DA.Time
 import InterLibraryLoans
+import DA.List (head)
 
 
 libraryAcceptScenario : Script ()
@@ -38,7 +39,6 @@ libraryAcceptScenario = script do
 
     pure ()
 
---needed new test scenario as the test above archives the contract once the Accept choice is exercised.
 libraryDeclineScenario = script do 
     library <- allocateParty "Columbus Metropolitan Library"
     borrower <- allocateParty "Stefan"
@@ -99,7 +99,6 @@ expireScenario = script do
     
     pure ()
 
-transferScenario : Script ()
 transferScenario = script do 
     library <- allocateParty "Columbus Metropolitan Library"
     requestingLibrary <- allocateParty "Morgan Library"
@@ -142,3 +141,51 @@ transferScenario = script do
 
     pure ()
 
+
+transferAndReturnScenario : Script ()
+transferAndReturnScenario = script do
+    library <- allocateParty "Columbus Metropolitan Library"
+    requestingLibrary <- allocateParty "The Great Library of Alexandria"
+    borrower <- allocateParty "Danny DeVito"
+    
+    currentTime <- getTime
+    let dueDate = date 970 Jan 15
+    let expiration = addRelTime currentTime (minutes 15)
+    let requestedReturnDate = addRelTime currentTime (days 42)
+
+    let bookDetails1 = BookDetails with
+            title = "The Art of French Cooking"
+            author = "Julia Child"
+            isbn = "69696969"
+
+    let bookDetails2 = BookDetails with
+            title = "The Hitchhiker's Guide to the Galaxy"
+            author = "Douglass Adams"
+            isbn = "42"
+
+    libraryBookCid1 <- submit library do
+        createCmd LibraryBook with 
+            details = bookDetails1
+            library = library 
+    
+    libraryBookCid2 <- submit library do
+        createCmd LibraryBook with
+            details = bookDetails2
+            library = library
+
+    batchedRequest <- submit requestingLibrary do
+        createCmd BatchLibraryLoanRequest with 
+            lendingLibrary = library
+            requestingLibrary = requestingLibrary
+            books = [bookDetails1, bookDetails2]
+            requestedUntil = requestedReturnDate
+
+    approvedLoan <- submit library do 
+        exerciseCmd batchedRequest ApproveLoan 
+
+    deliveredBooks <- submit library do
+        exerciseCmd approvedLoan Deliver with
+            bookIds = [libraryBookCid1, libraryBookCid2]
+
+
+    pure ()
