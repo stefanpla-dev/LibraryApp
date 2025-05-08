@@ -25,19 +25,6 @@ template BatchLibraryLoanRequest
                     lendingLibrary
                     books
                     dueDate = requestedUntil
-
-        -- choice ExtendLoan : ContractId BatchLibraryDeliverable
-        --     with extraDays : Int
-        --     controller lendingLibrary
-        --     do
-        --         let newDueDate = addRelTime dueDate (days extraDays)
-        --         create this with dueDate = newDueDate
-
-        -- choice ReturnLoanedBooks : ContractId LibraryBook
-        --     with returnedBooks : [BookDetails]
-        --     controller requestingLibrary
-        --     do
-        --         create LibraryBook with details = head returnedBooks, library = lendingLibrary
         
         choice RejectLoan : ()
             controller lendingLibrary

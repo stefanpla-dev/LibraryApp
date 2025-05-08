@@ -30,15 +30,6 @@ template LibraryBook
                     (year, month, day) = toGregorian $ dueDate `addDays` 1
                     due = datetime year month day 4 0 0 
                 create OfferedLibraryBook with ..
-        
-        -- give library the ability to transfer a book to another library. Becomes relevant in the InterLibraryLoan module.--
-        choice Transfer : ContractId LibraryBook 
-            with
-                newLibrary : Party
-            controller library
-            do
-                create LibraryBook with 
-                    library = newLibrary, ..
 
         choice OfferCustody : ContractId CustodyOffer
             with
