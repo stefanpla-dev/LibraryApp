@@ -69,9 +69,9 @@ template InterLibraryLoan
     where
         signatory requestingLibrary, lendingLibrary
 
+        -- choice Return : 
 
---try the folliwng test: Transferred books to Morgan Library. Have the Morgan Library lend it out to someone and have them return it on time. Then, try to return the books back to their original source.--
--- give the InterLibraryLoan the choice to ReturnBooks--
+
 
 
         
