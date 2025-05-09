@@ -7,7 +7,6 @@ import DA.Time
 import InterLibraryLoans
 import DA.List (head)
 
-
 libraryAcceptScenario : Script ()
 
 libraryAcceptScenario = script do 
@@ -186,6 +185,22 @@ transferAndReturnScenario = script do
     deliveredBooks <- submit library do
         exerciseCmd approvedLoan Deliver with
             bookIds = [libraryBookCid1, libraryBookCid2]
+
+    interLibraryLoanDataOpt <- queryContractId requestingLibrary deliveredBooks
+    case interLibraryLoanDataOpt of 
+        Some interLibraryLoanData -> do 
+                case interLibraryLoanData.transferredBooks of 
+                    [libraryBookCid1, libraryBookCid2] -> do 
+                        submit requestingLibrary do 
+                            exerciseCmd libraryBookCid1 Offer with
+                                borrower = borrower 
+                                dueDate = dueDate 
+                                expiration = expiration
+                        pure()
+                    _ -> pure ()
+
+                pure()
+        None -> pure()
 
 
     pure ()
